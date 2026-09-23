@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#10162f" />
+  <meta name="description" content="基于南京大学大学英语通用词汇的分级记忆与拼写练习工具" />
+  <title>词序 · 大学英语词汇训练</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%236f7bf7'/%3E%3Cpath d='M17 17h30v7H36v24h-8V24H17z' fill='white'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand" aria-label="词序首页">
+        <div class="brand-mark">词</div>
+        <div>
+          <strong>词序</strong>
+          <span>大学英语词汇训练</span>
+        </div>
+      </div>
+
+      <div class="level-switch" role="group" aria-label="选择词汇等级">
+        <button class="level-btn active" data-level="A">A <span>570</span></button>
+        <button class="level-btn" data-level="B">B <span>1217</span></button>
+        <button class="level-btn" data-level="C">C <span>1299</span></button>
+      </div>
+
+      <div class="today-pill">
+        <span>今日已学</span>
+        <strong id="todayCount">0</strong>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="sidebar">
+        <nav class="nav-list" aria-label="学习功能">
+          <button class="nav-item active" data-view="study"><span>01</span>单词学习</button>
+          <button class="nav-item" data-view="spell"><span>02</span>拼写训练</button>
+          <button class="nav-item" data-view="review"><span>03</span>薄弱复习</button>
+          <button class="nav-item" data-view="library"><span>04</span>全部词库</button>
+        </nav>
+
+        <section class="progress-panel" aria-labelledby="progressTitle">
+          <div class="panel-heading">
+            <h2 id="progressTitle">本级掌握</h2>
+            <span id="levelLabel">A级</span>
+          </div>
+          <div class="ring" id="progressRing" style="--progress: 0">
+            <div><strong id="masteryPercent">0%</strong><span>已掌握</span></div>
+          </div>
+          <div class="progress-stats">
+            <div><i class="dot known"></i><span>认识</span><strong id="knownTotal">0</strong></div>
+            <div><i class="dot fuzzy"></i><span>模糊</span><strong id="fuzzyTotal">0</strong></div>
+            <div><i class="dot unknown"></i><span>不会</span><strong id="unknownTotal">0</strong></div>
+          </div>
+        </section>
+      </aside>
+
+      <main class="main-content">
+        <section class="view active" id="studyView" aria-labelledby="studyHeading">
+          <div class="view-heading">
+            <div>
+              <p class="eyebrow">随机学习</p>
+              <h1 id="studyHeading">先回忆，再揭晓</h1>
+            </div>
+            <button class="secondary-btn" id="reshuffleBtn">重新打乱</button>
+          </div>
+
+          <div class="session-progress" aria-label="本轮学习进度">
+            <div><span id="cardPosition">1 / 570</span><span id="sessionSummary">本轮尚未作答</span></div>
+            <div class="progress-track"><div id="sessionBar"></div></div>
+          </div>
+
+          <article class="word-card" id="wordCard">
+            <div class="card-meta">
+              <span id="cardLevel">A · 学习卡</span>
+              <button class="icon-btn" id="speakBtn" aria-label="朗读单词" title="朗读单词">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6L8 10H4zm12.5 2a4.5 4.5 0 0 0-2-4v8a4.5 4.5 0 0 0 2-4zm-2-8.5v2.1a7 7 0 0 1 0 12.8v2.1a9 9 0 0 0 0-17z"/></svg>
+              </button>
+            </div>
+            <div class="word-stage">
+              <p class="word" id="currentWord">abandon</p>
+              <div class="meaning-wrap" id="meaningWrap">
+                <p class="meaning-placeholder">在心里说出它的中文意思</p>
+                <p class="meaning" id="currentMeaning" hidden>放弃；抛弃</p>
+              </div>
+            </div>
+            <button class="reveal-btn" id="revealBtn">显示释义 <kbd>Space</kbd></button>
+          </article>
+
+          <div class="rating-row" id="ratingRow" hidden>
+            <button class="rating unknown" data-rating="unknown"><span>1</span><strong>不会</strong><small>稍后再练</small></button>
+            <button class="rating fuzzy" data-rating="fuzzy"><span>2</span><strong>模糊</strong><small>需要巩固</small></button>
+            <button class="rating known" data-rating="known"><span>3</span><strong>认识</strong><small>延后复习</small></button>
+          </div>
+        </section>
+
+        <section class="view" id="spellView" aria-labelledby="spellHeading">
+          <div class="view-heading">
+            <div><p class="eyebrow">主动回忆</p><h1 id="spellHeading">根据释义拼写</h1></div>
+            <button class="secondary-btn" id="nextSpellBtn">换一个</button>
+          </div>
+          <article class="spell-card">
+            <span class="level-chip" id="spellLevel">A</span>
+            <p class="spell-meaning" id="spellMeaning">放弃；抛弃</p>
+            <form id="spellForm">
+              <label for="spellInput">输入英文单词</label>
+              <div class="spell-input-row">
+                <input id="spellInput" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Type the word" />
+                <button type="submit" class="primary-btn">检查</button>
+              </div>
+            </form>
+            <div class="spell-result" id="spellResult" aria-live="polite"></div>
+            <button class="text-btn" id="spellSpeakBtn">听发音提示</button>
+          </article>
+        </section>
+
+        <section class="view" id="reviewView" aria-labelledby="reviewHeading">
+          <div class="view-heading"><div><p class="eyebrow">精准补弱</p><h1 id="reviewHeading">只练需要巩固的词</h1></div></div>
+          <div class="review-grid">
+            <article class="review-card fuzzy-card">
+              <span>模糊词</span><strong id="reviewFuzzyCount">0</strong><p>能认出，但回忆不够稳定。</p>
+              <button class="secondary-btn review-start" data-type="fuzzy">开始复习</button>
+            </article>
+            <article class="review-card unknown-card">
+              <span>不会的词</span><strong id="reviewUnknownCount">0</strong><p>优先重复出现，直到重新判断。</p>
+              <button class="secondary-btn review-start" data-type="unknown">开始复习</button>
+            </article>
+          </div>
+          <div class="empty-state" id="reviewEmpty">
+            <div>✓</div><h2>目前没有薄弱词</h2><p>完成一些学习卡后，这里会自动整理需要复习的内容。</p>
+          </div>
+        </section>
+
+        <section class="view" id="libraryView" aria-labelledby="libraryHeading">
+          <div class="view-heading library-heading">
+            <div><p class="eyebrow">完整词表</p><h1 id="libraryHeading"><span id="libraryLevel">A</span> 级词库</h1></div>
+            <label class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="搜索英文或中文" /></label>
+          </div>
+          <div class="filter-row" role="group" aria-label="按掌握状态筛选">
+            <button class="filter-btn active" data-filter="all">全部</button>
+            <button class="filter-btn" data-filter="known">认识</button>
+            <button class="filter-btn" data-filter="fuzzy">模糊</button>
+            <button class="filter-btn" data-filter="unknown">不会</button>
+            <button class="filter-btn" data-filter="new">未学习</button>
+          </div>
+          <div class="word-list" id="wordList"></div>
+          <p class="list-count" id="listCount"></p>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="./vocab.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
