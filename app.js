@@ -17,6 +17,27 @@
 
   const $ = (id) => document.getElementById(id);
   const levels = window.VOCAB_DATA;
+  const speechEngine = "speechSynthesis" in window ? window.speechSynthesis : null;
+  let preferredVoice = null;
+  let speechTimer = null;
+
+  function prepareSpeech() {
+    if (!speechEngine) return;
+    const voices = speechEngine.getVoices();
+    preferredVoice = voices.find((voice) => voice.lang === "en-US" && voice.localService)
+      || voices.find((voice) => voice.lang === "en-US")
+      || voices.find((voice) => voice.lang.startsWith("en"))
+      || null;
+  }
+
+  prepareSpeech();
+  if (speechEngine) {
+    speechEngine.addEventListener?.("voiceschanged", prepareSpeech);
+    document.addEventListener("pointerdown", () => {
+      prepareSpeech();
+      speechEngine.resume();
+    }, { once: true, passive: true });
+  }
 
   function loadJSON(key, fallback) {
     try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; }
@@ -123,12 +144,21 @@
   }
 
   function speak(word) {
-    if (!("speechSynthesis" in window)) return showToast("当前浏览器不支持朗读");
-    speechSynthesis.cancel();
+    if (!speechEngine) return showToast("当前浏览器不支持朗读");
+    prepareSpeech();
+    const needsReset = speechEngine.speaking || speechEngine.pending;
+    if (needsReset) speechEngine.cancel();
+    clearTimeout(speechTimer);
     const utterance = new SpeechSynthesisUtterance(word);
     utterance.lang = "en-US";
-    utterance.rate = 0.85;
-    speechSynthesis.speak(utterance);
+    utterance.rate = 0.92;
+    if (preferredVoice) utterance.voice = preferredVoice;
+    const play = () => {
+      speechEngine.resume();
+      speechEngine.speak(utterance);
+    };
+    if (needsReset) speechTimer = setTimeout(play, 20);
+    else play();
   }
 
   function setLevel(level) {
@@ -300,7 +330,7 @@
     if (state.view !== "study" || ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
     if (event.code === "Space") { event.preventDefault(); reveal(); }
     if (state.revealed && ["1", "2", "3"].includes(event.key)) rate({ "1": "unknown", "2": "fuzzy", "3": "known" }[event.key]);
-    if (event.key.toLowerCase() === "p") speak(currentEntry().w);
+    if (event.key.toLowerCase() === "r") speak(currentEntry().w);
   });
 
   setQueue();

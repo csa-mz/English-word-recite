@@ -75,9 +75,12 @@
           <article class="word-card" id="wordCard">
             <div class="card-meta">
               <span id="cardLevel">A · 学习卡</span>
-              <button class="icon-btn" id="speakBtn" aria-label="朗读单词" title="朗读单词">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6L8 10H4zm12.5 2a4.5 4.5 0 0 0-2-4v8a4.5 4.5 0 0 0 2-4zm-2-8.5v2.1a7 7 0 0 1 0 12.8v2.1a9 9 0 0 0 0-17z"/></svg>
-              </button>
+              <span class="speak-action">
+                <button class="icon-btn" id="speakBtn" aria-label="朗读单词，快捷键 R" title="朗读单词（R）">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6L8 10H4zm12.5 2a4.5 4.5 0 0 0-2-4v8a4.5 4.5 0 0 0 2-4zm-2-8.5v2.1a7 7 0 0 1 0 12.8v2.1a9 9 0 0 0 0-17z"/></svg>
+                </button>
+                <kbd aria-hidden="true">R</kbd>
+              </span>
             </div>
             <div class="word-stage">
               <p class="word" id="currentWord">abandon</p>
