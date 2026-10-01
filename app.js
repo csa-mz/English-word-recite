@@ -1,8 +1,13 @@
 (() => {
   const STORAGE_KEY = "cixu-progress-v1";
   const TODAY_KEY = "cixu-today-v1";
+  const SESSION_KEY = "cixu-sessions-v2";
+  const SETTINGS_KEY = "cixu-settings-v1";
+  const sessionStore = loadJSON(SESSION_KEY, { activeLevel: "A", levels: {} });
+  const savedSettings = loadJSON(SETTINGS_KEY, { autoPlay: true });
+  const initialLevel = ["A", "B", "C"].includes(sessionStore.activeLevel) ? sessionStore.activeLevel : "A";
   const state = {
-    level: "A",
+    level: initialLevel,
     view: "study",
     queue: [],
     queueIndex: 0,
@@ -13,6 +18,7 @@
     libraryFilter: "all",
     reviewType: null,
     spellEntry: null,
+    settings: { autoPlay: savedSettings.autoPlay !== false },
   };
 
   const $ = (id) => document.getElementById(id);
@@ -20,6 +26,7 @@
   const speechEngine = "speechSynthesis" in window ? window.speechSynthesis : null;
   let preferredVoice = null;
   let speechTimer = null;
+  let autoSpeakTimer = null;
 
   function prepareSpeech() {
     if (!speechEngine) return;
@@ -52,6 +59,49 @@
   function saveProgress() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state.progress));
     localStorage.setItem(TODAY_KEY, JSON.stringify(state.today));
+    saveSession();
+  }
+
+  function saveSettings() {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
+  }
+
+  function saveSession() {
+    if (!state.queue.length) return;
+    sessionStore.activeLevel = state.level;
+    sessionStore.levels[state.level] = {
+      queue: state.queue.map((entry) => entry.w),
+      queueIndex: state.queueIndex,
+      revealed: state.revealed,
+      ratings: { ...state.ratings },
+      reviewType: state.reviewType,
+      updatedAt: Date.now(),
+    };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionStore));
+  }
+
+  function restoreSession(level) {
+    const saved = sessionStore.levels?.[level];
+    if (!saved || !Array.isArray(saved.queue) || !saved.queue.length) return false;
+    const byWord = new Map(levels[level].map((entry) => [entry.w, entry]));
+    const queue = saved.queue.map((word) => byWord.get(word)).filter(Boolean);
+    if (!queue.length || queue.length !== saved.queue.length) return false;
+    state.queue = queue;
+    state.queueIndex = Math.max(0, Math.min(Number(saved.queueIndex) || 0, queue.length - 1));
+    state.revealed = Boolean(saved.revealed);
+    state.ratings = {
+      known: Number(saved.ratings?.known) || 0,
+      fuzzy: Number(saved.ratings?.fuzzy) || 0,
+      unknown: Number(saved.ratings?.unknown) || 0,
+    };
+    state.reviewType = ["fuzzy", "unknown"].includes(saved.reviewType) ? saved.reviewType : null;
+    return true;
+  }
+
+  function clearSession(level = state.level) {
+    delete sessionStore.levels[level];
+    sessionStore.activeLevel = level;
+    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionStore));
   }
 
   function entryKey(entry, level = state.level) { return `${level}:${entry.w}`; }
@@ -65,13 +115,15 @@
     return result;
   }
 
-  function setQueue(entries = levels[state.level], type = null) {
+  function setQueue(entries = levels[state.level], type = null, options = {}) {
     state.reviewType = type;
     state.queue = shuffle(entries);
     state.queueIndex = 0;
     state.revealed = false;
     state.ratings = { known: 0, fuzzy: 0, unknown: 0 };
     renderStudy();
+    saveSession();
+    if (options.autoPlay !== false) scheduleAutoSpeak();
   }
 
   function currentEntry() { return state.queue[state.queueIndex] || levels[state.level][0]; }
@@ -96,6 +148,7 @@
     if (state.revealed) return;
     state.revealed = true;
     renderStudy();
+    saveSession();
   }
 
   function rate(rating) {
@@ -114,6 +167,8 @@
     } else {
       state.revealed = false;
       renderStudy();
+      saveSession();
+      scheduleAutoSpeak();
     }
     updateStats();
   }
@@ -161,11 +216,29 @@
     else play();
   }
 
+  function scheduleAutoSpeak() {
+    clearTimeout(autoSpeakTimer);
+    if (!state.settings.autoPlay || state.view !== "study" || !speechEngine) return;
+    if (speechEngine.speaking || speechEngine.pending) speechEngine.cancel();
+    const word = currentEntry()?.w;
+    if (!word) return;
+    autoSpeakTimer = setTimeout(() => {
+      if (state.settings.autoPlay && state.view === "study" && currentEntry()?.w === word) speak(word);
+    }, 90);
+  }
+
   function setLevel(level) {
+    saveSession();
     state.level = level;
     document.querySelectorAll(".level-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.level === level));
     $("libraryLevel").textContent = level;
-    setQueue();
+    if (restoreSession(level)) {
+      renderStudy();
+      saveSession();
+      scheduleAutoSpeak();
+    } else {
+      setQueue();
+    }
     chooseSpellEntry();
     updateStats();
     renderLibrary();
@@ -178,6 +251,12 @@
     if (view === "library") renderLibrary();
     if (view === "review") updateStats();
     if (view === "spell") setTimeout(() => $("spellInput").focus(), 50);
+    if (view === "settings") updateSettingsUI();
+  }
+
+  function updateSettingsUI() {
+    $("autoPlayToggle").checked = state.settings.autoPlay;
+    $("autoPlayState").textContent = state.settings.autoPlay ? "开" : "关";
   }
 
   function chooseSpellEntry() {
@@ -320,12 +399,26 @@
   $("revealBtn").addEventListener("click", reveal);
   $("wordCard").addEventListener("dblclick", reveal);
   $("speakBtn").addEventListener("click", () => speak(currentEntry().w));
-  $("reshuffleBtn").addEventListener("click", () => { setQueue(); showToast("已重新打乱"); });
+  $("reshuffleBtn").addEventListener("click", () => {
+    clearSession();
+    setQueue();
+    showToast("旧进度已清空，已重新打乱");
+  });
   $("spellForm").addEventListener("submit", checkSpelling);
   $("nextSpellBtn").addEventListener("click", chooseSpellEntry);
   $("spellSpeakBtn").addEventListener("click", () => speak(state.spellEntry.w));
   $("searchInput").addEventListener("input", renderLibrary);
-
+  $("autoPlayToggle").addEventListener("change", (event) => {
+    state.settings.autoPlay = event.target.checked;
+    saveSettings();
+    updateSettingsUI();
+    if (state.settings.autoPlay) scheduleAutoSpeak();
+    else {
+      clearTimeout(autoSpeakTimer);
+      if (speechEngine?.speaking || speechEngine?.pending) speechEngine.cancel();
+    }
+    showToast(state.settings.autoPlay ? "已开启自动朗读" : "已关闭自动朗读");
+  });
   document.addEventListener("keydown", (event) => {
     if (state.view !== "study" || ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
     if (event.code === "Space") { event.preventDefault(); reveal(); }
@@ -333,9 +426,17 @@
     if (event.key.toLowerCase() === "r") speak(currentEntry().w);
   });
 
-  setQueue();
+  document.querySelectorAll(".level-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.level === state.level));
+  $("libraryLevel").textContent = state.level;
+  if (restoreSession(state.level)) {
+    renderStudy();
+    scheduleAutoSpeak();
+  } else {
+    setQueue(levels[state.level], null, { autoPlay: true });
+  }
   chooseSpellEntry();
   updateStats();
   renderLibrary();
+  updateSettingsUI();
   registerWebMCP();
 })();

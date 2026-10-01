@@ -39,6 +39,7 @@
           <button class="nav-item" data-view="spell"><span>02</span>拼写训练</button>
           <button class="nav-item" data-view="review"><span>03</span>薄弱复习</button>
           <button class="nav-item" data-view="library"><span>04</span>全部词库</button>
+          <button class="nav-item" data-view="settings"><span>05</span>设置</button>
         </nav>
 
         <section class="progress-panel" aria-labelledby="progressTitle">
@@ -150,6 +151,28 @@
           </div>
           <div class="word-list" id="wordList"></div>
           <p class="list-count" id="listCount"></p>
+        </section>
+
+        <section class="view" id="settingsView" aria-labelledby="settingsHeading">
+          <div class="view-heading">
+            <div><p class="eyebrow">学习偏好</p><h1 id="settingsHeading">设置</h1></div>
+          </div>
+
+          <div class="settings-grid">
+            <article class="settings-card">
+              <div class="setting-row">
+                <div>
+                  <h2>自动播放读音</h2>
+                  <p>切换到新单词时自动朗读；关闭后仍可点击喇叭或按 R 朗读。</p>
+                </div>
+                <label class="switch-control">
+                  <input id="autoPlayToggle" type="checkbox" />
+                  <span class="switch-track" aria-hidden="true"></span>
+                  <span class="switch-label" id="autoPlayState">开</span>
+                </label>
+              </div>
+            </article>
+          </div>
         </section>
       </main>
     </div>
