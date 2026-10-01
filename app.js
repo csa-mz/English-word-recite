@@ -27,6 +27,7 @@
   let preferredVoice = null;
   let speechTimer = null;
   let autoSpeakTimer = null;
+  let speechRequestId = 0;
 
   function prepareSpeech() {
     if (!speechEngine) return;
@@ -116,6 +117,7 @@
   }
 
   function setQueue(entries = levels[state.level], type = null, options = {}) {
+    stopSpeech();
     state.reviewType = type;
     state.queue = shuffle(entries);
     state.queueIndex = 0;
@@ -153,6 +155,7 @@
 
   function rate(rating) {
     if (!state.revealed) return;
+    stopSpeech();
     const entry = currentEntry();
     const key = entryKey(entry);
     const previous = state.progress[key] || {};
@@ -198,33 +201,39 @@
     $("reviewEmpty").classList.toggle("show", counts.fuzzy + counts.unknown === 0);
   }
 
+  function stopSpeech() {
+    speechRequestId += 1;
+    clearTimeout(speechTimer);
+    clearTimeout(autoSpeakTimer);
+    speechTimer = null;
+    autoSpeakTimer = null;
+    if (speechEngine) speechEngine.cancel();
+  }
+
   function speak(word) {
     if (!speechEngine) return showToast("当前浏览器不支持朗读");
     prepareSpeech();
-    const needsReset = speechEngine.speaking || speechEngine.pending;
-    if (needsReset) speechEngine.cancel();
-    clearTimeout(speechTimer);
+    stopSpeech();
+    const requestId = speechRequestId;
     const utterance = new SpeechSynthesisUtterance(word);
     utterance.lang = "en-US";
     utterance.rate = 0.92;
     if (preferredVoice) utterance.voice = preferredVoice;
-    const play = () => {
+    speechTimer = setTimeout(() => {
+      if (requestId !== speechRequestId) return;
       speechEngine.resume();
       speechEngine.speak(utterance);
-    };
-    if (needsReset) speechTimer = setTimeout(play, 20);
-    else play();
+    }, 0);
   }
 
   function scheduleAutoSpeak() {
-    clearTimeout(autoSpeakTimer);
+    stopSpeech();
     if (!state.settings.autoPlay || state.view !== "study" || !speechEngine) return;
-    if (speechEngine.speaking || speechEngine.pending) speechEngine.cancel();
     const word = currentEntry()?.w;
     if (!word) return;
     autoSpeakTimer = setTimeout(() => {
       if (state.settings.autoPlay && state.view === "study" && currentEntry()?.w === word) speak(word);
-    }, 90);
+    }, 0);
   }
 
   function setLevel(level) {
@@ -245,6 +254,7 @@
   }
 
   function setView(view) {
+    if (view !== "study") stopSpeech();
     state.view = view;
     document.querySelectorAll(".nav-item").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
     document.querySelectorAll(".view").forEach((section) => section.classList.toggle("active", section.id === `${view}View`));
@@ -252,6 +262,7 @@
     if (view === "review") updateStats();
     if (view === "spell") setTimeout(() => $("spellInput").focus(), 50);
     if (view === "settings") updateSettingsUI();
+    if (view === "study") scheduleAutoSpeak();
   }
 
   function updateSettingsUI() {
@@ -413,10 +424,7 @@
     saveSettings();
     updateSettingsUI();
     if (state.settings.autoPlay) scheduleAutoSpeak();
-    else {
-      clearTimeout(autoSpeakTimer);
-      if (speechEngine?.speaking || speechEngine?.pending) speechEngine.cancel();
-    }
+    else stopSpeech();
     showToast(state.settings.autoPlay ? "已开启自动朗读" : "已关闭自动朗读");
   });
   document.addEventListener("keydown", (event) => {
